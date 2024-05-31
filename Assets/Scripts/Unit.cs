@@ -14,21 +14,14 @@ public class Unit : MonoBehaviour
 
     private void Start()
     {
-        StartCoroutine(PathFinding());
-
-        _coroutine = StartCoroutine(FollowPath());
-
+        AStar.Instance.RequestPath(transform.position, _target.position, GetPath);
     }
 
-    private IEnumerator PathFinding()
+
+    private void GetPath(List<Node> nodeList)
     {
-        while(true)
-        {
-            yield return new WaitForSeconds(0.1f);
-           _path = AStar.Instance.PathFinding(transform.position, _target.position);
-
-
-        }
+        _path = nodeList;
+        _coroutine = StartCoroutine(FollowPath());
     }
 
 
@@ -43,6 +36,21 @@ public class Unit : MonoBehaviour
             {
                 transform.position = Vector3.MoveTowards(transform.position, node.toWorldPosition(), 1 * Time.deltaTime);
                 yield return null;
+            }
+        }
+    }
+
+
+    private void OnDrawGizmos()
+    {
+             // 경로를 그리는 코드
+        if (_path != null && _path.Count > 0)
+        {
+            Gizmos.color = Color.green;
+
+            for (int i = 0; i < _path.Count - 1; i++)
+            {
+                Gizmos.DrawLine(_path[i].toWorldPosition(), _path[i + 1].toWorldPosition());
             }
         }
     }

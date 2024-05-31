@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 [Serializable]
@@ -13,6 +14,7 @@ public class Node
     public bool IsWall;
     public Node ParentNode;
 
+    private float _nodeSize => AStar.Instance.NodeSize;
     private Vector2 _mapBottomLeft => AStar.Instance.MapBottomLeft;
 
     public Node(bool isWall, int x, int y) { IsWall = isWall; X = x; Y = y; }
@@ -24,16 +26,15 @@ public class Node
 
     public Vector2 toWorldPosition()
     {
-        float posX = _mapBottomLeft.x + X + 0.5f;
-        float posY = _mapBottomLeft.y + Y + 0.5f;
+        float posX = _mapBottomLeft.x + (X + 0.5f) * _nodeSize;
+        float posY = _mapBottomLeft.y + (Y + 0.5f) * _nodeSize;
         return new Vector2(posX, posY);
     }
-
 }
 
 public class AStar : MonoBehaviour
 {
-    private static AStar _instance;
+
     public static AStar Instance
     {
         get
@@ -42,12 +43,15 @@ public class AStar : MonoBehaviour
             {
                 GameObject obj = new GameObject("AStarManager");
                 _instance = obj.AddComponent<AStar>();
+                DontDestroyOnLoad(obj);
             }
 
             return _instance;
         }
     }
+    private static AStar _instance;
 
+    public float NodeSize;
     public Vector2 MapBottomLeft;
     [SerializeField] private Vector2Int _mapSize;
 
@@ -56,7 +60,6 @@ public class AStar : MonoBehaviour
     private int[] _cost = new int[8] { 10, 10, 10, 10, 14, 14, 14, 14 };
 
     private Node[,] _nodes;
-    private List<Node> tmpList = new List<Node>();
     private int _sizeX;
     private int _sizeY;
 
@@ -65,27 +68,31 @@ public class AStar : MonoBehaviour
 
     private void Awake()
     {
+        if (_instance != null)
+            return;
+
         _instance = this;
+        DontDestroyOnLoad(gameObject);
         Init();
     }
 
 
     private void Init()
     {
-        _sizeX = _mapSize.x;
-        _sizeY = _mapSize.y;
+        _sizeX = Mathf.CeilToInt(_mapSize.x / NodeSize);
+        _sizeY = Mathf.CeilToInt(_mapSize.y / NodeSize);
 
         _nodes = new Node[_sizeX, _sizeY];
 
         for(int i = 0; i < _sizeX; ++i)
         {
-            float posX = MapBottomLeft.x + i + 0.5f;
+            float posX = MapBottomLeft.x + (i + 0.5f) * NodeSize;
 
             for (int j = 0; j < _sizeY; ++j)
             {
-                float posY = MapBottomLeft.y + j + 0.5f;
+                float posY = MapBottomLeft.y + (j + 0.5f) * NodeSize;
                 bool isWall = false;
-                foreach (Collider2D col in Physics2D.OverlapCircleAll(new Vector2(posX, posY), 0.45f))
+                foreach (Collider2D col in Physics2D.OverlapCircleAll(new Vector2(posX, posY), NodeSize * 0.4f))
                     if (col.gameObject.layer == LayerMask.NameToLayer("Wall")) 
                         isWall = true;
 
@@ -95,12 +102,20 @@ public class AStar : MonoBehaviour
         }
     }
 
+    public void RequestPath(Vector2 startPos, Vector2 targetPos, Action<List<Node>> callback)
+    {
+        PathfindingQueue.Instance.Enqueue(() =>
+        {
+            List<Node> pathResult = PathFindingTask(startPos, targetPos);
+            MainThreadDispatcher.Instance.Enqueue(() => callback(pathResult));
+        });
+    }
 
-    public List<Node> PathFinding(Vector2 startPos, Vector2 targetPos)
+
+    private List<Node> PathFindingTask(Vector2 startPos, Vector2 targetPos)
     {
         Vector2Int sPos = WorldToNodePos(startPos);
         Vector2Int tPos = WorldToNodePos(targetPos);
-
 
         for (int i = 0; i < _sizeX; ++i)
         {
@@ -117,7 +132,7 @@ public class AStar : MonoBehaviour
 
         List<Node> openList = new List<Node>() { startNode };
         List<Node> closedList = new List<Node>();
-        tmpList.Clear();
+        List<Node> tmpList = new List<Node>();
 
         while(0 < openList.Count)
         {
@@ -139,13 +154,10 @@ public class AStar : MonoBehaviour
                     tmpList.Add(node);
                     node = node.ParentNode;
                 }
+
                 tmpList.Add(startNode);
                 tmpList.Reverse();
-
-
-                List<Node> returnNodeList = new List<Node>();
-                returnNodeList.AddRange(tmpList);
-                return returnNodeList;
+                return tmpList;
             }
 
             int dirCnt = 4;
@@ -178,22 +190,22 @@ public class AStar : MonoBehaviour
             }
         }
 
-        return default;
+        return new List<Node>();
     }
 
 
     public Vector2 NodeToWorldPos(Node node)
     {
-        float posX = MapBottomLeft.x + node.X + 0.5f;
-        float posY = MapBottomLeft.y + node.Y + 0.5f;
+        float posX = MapBottomLeft.x + (node.X + 0.5f) * NodeSize;
+        float posY = MapBottomLeft.y + (node.Y + 0.5f) * NodeSize;
         return new Vector2(posX, posY);
     }
 
 
     private Vector2Int WorldToNodePos(Vector2 pos)
     {
-        int posX = Mathf.FloorToInt(pos.x - MapBottomLeft.x);
-        int posY = Mathf.FloorToInt(pos.y - MapBottomLeft.y);
+        int posX = Mathf.FloorToInt((pos.x - MapBottomLeft.x) / NodeSize);
+        int posY = Mathf.FloorToInt((pos.y - MapBottomLeft.y) / NodeSize);
 
         posX = Mathf.Clamp(posX, 0, _sizeX - 1);
         posY = Mathf.Clamp(posY, 0, _sizeY - 1);
@@ -202,55 +214,48 @@ public class AStar : MonoBehaviour
     }
 
 
-
-
-
     private void OnDrawGizmos()
     {
+        // 전체 맵을 그리는 코드
         Vector2 mapCenter = new Vector2(MapBottomLeft.x + _mapSize.x * 0.5f, MapBottomLeft.y + _mapSize.y * 0.5f);
-        Vector2 mapSize = _mapSize;
+        Vector2 mapSize = new Vector2(_mapSize.x, _mapSize.y);
         Gizmos.DrawWireCube(mapCenter, mapSize);
 
-        for(int i = 0, cntI = _mapSize.x; i < cntI; ++i)
+
+        if (NodeSize <= 0)
+            return;
+
+        int sizeX = Mathf.CeilToInt(_mapSize.x / NodeSize);
+        int sizeY = Mathf.CeilToInt(_mapSize.y / NodeSize);
+
+        // 각 노드를 그리는 코드
+        for (int i = 0; i < sizeX; i++)
         {
-            float posX = MapBottomLeft.x + i + 0.5f;
-            for (int j = 0, cntJ = _mapSize.y; j < cntJ; ++j)
+            float posX = MapBottomLeft.x + (i + 0.5f) * NodeSize;
+            for (int j = 0; j < sizeY; j++)
             {
-                float posY = MapBottomLeft.y + j + 0.5f;
+                float posY = MapBottomLeft.y + (j + 0.5f) * NodeSize;
 
-                if (_nodes != null && 0 < _nodes.Length)
+                if(_nodes != null)
                 {
-
                     if (_nodes[i, j].IsWall)
                     {
                         Gizmos.color = Color.red;
-                        Gizmos.DrawCube(new Vector2(posX, posY), new Vector2(1, 1));
+                        Gizmos.DrawCube(new Vector2(posX, posY), Vector2.one * NodeSize);
                     }
-
                     else
                     {
                         Gizmos.color = Color.white;
-                        Gizmos.DrawWireCube(new Vector2(posX, posY), new Vector2(1, 1));
+                        Gizmos.DrawWireCube(new Vector2(posX, posY), Vector2.one * NodeSize);
                     }
-
-                    continue;
+                }
+                else
+                {
+                    Gizmos.color = Color.white;
+                    Gizmos.DrawWireCube(new Vector2(posX, posY), Vector2.one * NodeSize);
                 }
 
-                Gizmos.color = Color.white;
-                Gizmos.DrawWireCube(new Vector2(posX, posY), new Vector2(1, 1));
-            }
-
-        }
-
-        if(tmpList != null && 0 < tmpList.Count)
-        {
-            Gizmos.color = Color.green;
-
-            for (int i = 0; i < tmpList.Count - 1;  ++i)
-            {
-                Gizmos.DrawLine(tmpList[i].toVector2(), tmpList[i + 1].toVector2());
             }
         }
-
     }
 }
