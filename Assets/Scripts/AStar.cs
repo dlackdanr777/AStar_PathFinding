@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,12 +12,23 @@ public class Node
     public int X;
     public bool IsWall;
     public Node ParentNode;
+
+    private Vector2 _mapBottomLeft => AStar.Instance.MapBottomLeft;
+
     public Node(bool isWall, int x, int y) { IsWall = isWall; X = x; Y = y; }
 
     public Vector2 toVector2()
     {
         return new Vector2(X, Y);
     }
+
+    public Vector2 toWorldPosition()
+    {
+        float posX = _mapBottomLeft.x + X + 0.5f;
+        float posY = _mapBottomLeft.y + Y + 0.5f;
+        return new Vector2(posX, posY);
+    }
+
 }
 
 public class AStar : MonoBehaviour
@@ -38,7 +48,7 @@ public class AStar : MonoBehaviour
         }
     }
 
-    [SerializeField] private Vector2 _mapBottomLeft;
+    public Vector2 MapBottomLeft;
     [SerializeField] private Vector2Int _mapSize;
 
     private int[] _dirX = new int[8] { 0, 0, 1, -1, 1, 1, -1, -1 };
@@ -69,11 +79,11 @@ public class AStar : MonoBehaviour
 
         for(int i = 0; i < _sizeX; ++i)
         {
-            float posX = _mapBottomLeft.x + i + 0.5f;
+            float posX = MapBottomLeft.x + i + 0.5f;
 
             for (int j = 0; j < _sizeY; ++j)
             {
-                float posY = _mapBottomLeft.y + j + 0.5f;
+                float posY = MapBottomLeft.y + j + 0.5f;
                 bool isWall = false;
                 foreach (Collider2D col in Physics2D.OverlapCircleAll(new Vector2(posX, posY), 0.45f))
                     if (col.gameObject.layer == LayerMask.NameToLayer("Wall")) 
@@ -86,7 +96,7 @@ public class AStar : MonoBehaviour
     }
 
 
-    public Vector2 PathFinding(Vector2 startPos, Vector2 targetPos)
+    public List<Node> PathFinding(Vector2 startPos, Vector2 targetPos)
     {
         Vector2Int sPos = WorldToNodePos(startPos);
         Vector2Int tPos = WorldToNodePos(targetPos);
@@ -132,14 +142,10 @@ public class AStar : MonoBehaviour
                 tmpList.Add(startNode);
                 tmpList.Reverse();
 
-                if (tmpList.Count == 0)
-                    return targetPos;
 
-                else if(tmpList.Count == 1)
-                    return NodeToWorldPos(new Vector2Int(tmpList[0].X, tmpList[0].Y));
-                
-                else if(2 <= tmpList.Count)
-                    return NodeToWorldPos(new Vector2Int(tmpList[1].X, tmpList[1].Y));
+                List<Node> returnNodeList = new List<Node>();
+                returnNodeList.AddRange(tmpList);
+                return returnNodeList;
             }
 
             int dirCnt = 4;
@@ -172,14 +178,22 @@ public class AStar : MonoBehaviour
             }
         }
 
-        return startPos;
+        return default;
+    }
+
+
+    public Vector2 NodeToWorldPos(Node node)
+    {
+        float posX = MapBottomLeft.x + node.X + 0.5f;
+        float posY = MapBottomLeft.y + node.Y + 0.5f;
+        return new Vector2(posX, posY);
     }
 
 
     private Vector2Int WorldToNodePos(Vector2 pos)
     {
-        int posX = Mathf.FloorToInt(pos.x - _mapBottomLeft.x);
-        int posY = Mathf.FloorToInt(pos.y - _mapBottomLeft.y);
+        int posX = Mathf.FloorToInt(pos.x - MapBottomLeft.x);
+        int posY = Mathf.FloorToInt(pos.y - MapBottomLeft.y);
 
         posX = Mathf.Clamp(posX, 0, _sizeX - 1);
         posY = Mathf.Clamp(posY, 0, _sizeY - 1);
@@ -188,26 +202,21 @@ public class AStar : MonoBehaviour
     }
 
 
-    private Vector2 NodeToWorldPos(Vector2Int pos)
-    {
-        float posX = _mapBottomLeft.x + pos.x + 0.5f;
-        float posY = _mapBottomLeft.y + pos.y + 0.5f;
-        return new Vector2(posX, posY);
-    }
+
 
 
     private void OnDrawGizmos()
     {
-        Vector2 mapCenter = new Vector2(_mapBottomLeft.x + _mapSize.x * 0.5f, _mapBottomLeft.y + _mapSize.y * 0.5f);
+        Vector2 mapCenter = new Vector2(MapBottomLeft.x + _mapSize.x * 0.5f, MapBottomLeft.y + _mapSize.y * 0.5f);
         Vector2 mapSize = _mapSize;
         Gizmos.DrawWireCube(mapCenter, mapSize);
 
         for(int i = 0, cntI = _mapSize.x; i < cntI; ++i)
         {
-            float posX = _mapBottomLeft.x + i + 0.5f;
+            float posX = MapBottomLeft.x + i + 0.5f;
             for (int j = 0, cntJ = _mapSize.y; j < cntJ; ++j)
             {
-                float posY = _mapBottomLeft.y + j + 0.5f;
+                float posY = MapBottomLeft.y + j + 0.5f;
 
                 if (_nodes != null && 0 < _nodes.Length)
                 {
