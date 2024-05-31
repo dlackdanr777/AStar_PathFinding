@@ -1,44 +1,48 @@
-using System.Collections;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
-using System;
 
-public class MainThreadDispatcher : MonoBehaviour
+namespace Muks.PathFinding.AStar
 {
-    private static readonly Queue<Action> _executionQueue = new Queue<Action>();
-
-    public static MainThreadDispatcher Instance => _instance;
-    private static MainThreadDispatcher _instance;
-
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-    private static void CreateObj()
+    /// <summary> 큐에 저장시켜놓고 해당 큐를 순차적으로 실행하는 클래스 </summary>
+    public class MainThreadDispatcher : MonoBehaviour
     {
-        if (_instance != null)
-            return;
+        private static readonly Queue<Action> _executionQueue = new Queue<Action>();
 
-        GameObject obj = new GameObject("MainThreadDispatcher");
-        _instance = obj.AddComponent<MainThreadDispatcher>();
-        DontDestroyOnLoad(obj);
-    }
+        public static MainThreadDispatcher Instance => _instance;
+        private static MainThreadDispatcher _instance;
 
 
-    public void Update()
-    {
-        lock(_executionQueue)
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void CreateObj()
         {
-            while(0 < _executionQueue.Count)
+            if (_instance != null)
+                return;
+
+            GameObject obj = new GameObject("MainThreadDispatcher");
+            _instance = obj.AddComponent<MainThreadDispatcher>();
+            DontDestroyOnLoad(obj);
+        }
+
+
+        public void Update()
+        {
+            lock (_executionQueue)
             {
-                _executionQueue.Dequeue().Invoke();
+                while (0 < _executionQueue.Count)
+                {
+                    _executionQueue.Dequeue().Invoke();
+                }
+            }
+        }
+
+        public void Enqueue(Action action)
+        {
+            lock (_executionQueue)
+            {
+                _executionQueue.Enqueue(action);
             }
         }
     }
-
-    public void Enqueue(Action action)
-    {
-        lock (_executionQueue)
-        {
-            _executionQueue.Enqueue(action);
-        }
-    }
 }
+

@@ -1,68 +1,72 @@
-
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Threading;
-using UnityEngine;
 using System;
+using System.Collections.Concurrent;
+using System.Threading;
 using System.Threading.Tasks;
+using UnityEngine;
 
-public class PathfindingQueue : MonoBehaviour
+namespace Muks.PathFinding.AStar
 {
-
-    public static PathfindingQueue Instance => _instance;
-    private static PathfindingQueue _instance;
-
-    private ConcurrentQueue<Action> _pathfindingQueue = new ConcurrentQueue<Action>();
-    private CancellationTokenSource _cancellationTokenSource;
-    private Task _processingTask;
-
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-    private static void CreateObj()
+    /// <summary> AStar 길찾기 계산을 멀티 스레드 환경에서 순차적으로 실행시키는 Class  </summary>
+    public class PathfindingQueue : MonoBehaviour
     {
-        if (_instance != null)
-            return;
+        public static PathfindingQueue Instance => _instance;
+        private static PathfindingQueue _instance;
 
-        GameObject obj = new GameObject("PathfindingQueue");
-        _instance = obj.AddComponent<PathfindingQueue>();
-        DontDestroyOnLoad(obj);
-    }
-
-    private void Awake()
-    {
-        StartProcessingQueue();
-    }
+        private ConcurrentQueue<Action> _pathfindingQueue = new ConcurrentQueue<Action>();
+        private CancellationTokenSource _cancellationTokenSource;
+        private Task _processingTask;
 
 
-    private void OnDestroy()
-    {
-        _cancellationTokenSource?.Cancel();
-    }
-
-    private void StartProcessingQueue()
-    {
-        _cancellationTokenSource = new CancellationTokenSource();
-        var token = _cancellationTokenSource.Token;
-
-        _processingTask = Task.Run(async () =>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void CreateObj()
         {
-            while (!token.IsCancellationRequested)
-            {
-                if (_pathfindingQueue.TryDequeue(out Action action))
-                {
-                    action.Invoke();
-                }
-                else
-                {
-                    await Task.Delay(10, token); // 큐가 비어 있을 때 잠시 대기
-                }
-            }
-        }, token);
-    }
+            if (_instance != null)
+                return;
 
-    public void Enqueue(Action action)
-    {
-        _pathfindingQueue.Enqueue(action);
+            GameObject obj = new GameObject("PathfindingQueue");
+            _instance = obj.AddComponent<PathfindingQueue>();
+            DontDestroyOnLoad(obj);
+        }
+
+        private void Awake()
+        {
+            StartProcessingQueue();
+        }
+
+
+        private void OnDestroy()
+        {
+            _cancellationTokenSource?.Cancel();
+        }
+
+        /// <summary> 큐에 있는 대리자를 순차 실행시키는 함수 </summary>
+        private void StartProcessingQueue()
+        {
+            _cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken token = _cancellationTokenSource.Token;
+
+            _processingTask = Task.Run(async () =>
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    if (_pathfindingQueue.TryDequeue(out Action action))
+                    {
+                        action.Invoke();
+                    }
+                    else
+                    {
+                        // 큐가 비어 있을 때 잠시 대기한다.
+                        await Task.Delay(10, token); 
+                    }
+                }
+            }, token);
+        }
+
+
+        /// <summary> 대리자를 큐에 적재시키는 함수 </summary>
+        public void Enqueue(Action action)
+        {
+            _pathfindingQueue.Enqueue(action);
+        }
     }
 }
