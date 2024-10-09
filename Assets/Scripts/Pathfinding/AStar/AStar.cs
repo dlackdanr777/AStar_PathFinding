@@ -139,7 +139,6 @@ namespace Muks.PathFinding.AStar
             _sizeX = Mathf.CeilToInt(_mapSize.x / _nodeSize);
             _sizeY = Mathf.CeilToInt(_mapSize.y / _nodeSize);
 
-            Debug.Log("실행");
             ResearchNodes();
         }
 
@@ -147,6 +146,20 @@ namespace Muks.PathFinding.AStar
         /// <summary>AStar 알고리즘을 이용, 출발지에서 목적지까지 최단거리를 List<Node> 형태로 반환</summary>
         private List<Vector2> PathFinding(Vector2 startPos, Vector2 targetPos)
         {
+            //맵 범위를 벗어났을 경우 오류메세지 출력
+            if (startPos.x < _mapBottomLeft.x || _mapBottomLeft.x + _mapSize.x < startPos.x || startPos.y < _mapBottomLeft.y || _mapBottomLeft.y + _mapSize.y < startPos.y)
+            {
+                Debug.LogError("시작 위치가 맵 범위를 벗어났습니다: " + startPos);
+                return new List<Vector2>();
+            }
+
+            if (targetPos.x < _mapBottomLeft.x || _mapBottomLeft.x + _mapSize.x < targetPos.x || targetPos.y < _mapBottomLeft.y || _mapBottomLeft.y + _mapSize.y < targetPos.y)
+            {
+                Debug.LogError("목표 위치가 맵 범위를 벗어났습니다: " + targetPos);
+                return new List<Vector2>();
+            }
+
+            //시작, 목표 위치를 Node Index로 변경 후 실행한다.
             Vector2Int sPos = WorldToNodePos(startPos);
             Vector2Int tPos = WorldToNodePos(targetPos);
 
@@ -167,7 +180,7 @@ namespace Muks.PathFinding.AStar
             List<Node> closedList = new List<Node>();
             List<Vector2> tmpList = new List<Vector2>();
 
-
+            //openList가 0이하로 내려갈때까지 반복한다.
             while (0 < openList.Count)
             {
                 Node currentNode = openList[0];
