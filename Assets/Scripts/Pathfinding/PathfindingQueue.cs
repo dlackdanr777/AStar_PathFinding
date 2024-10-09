@@ -4,43 +4,34 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace Muks.PathFinding.AStar
+namespace Muks.PathFinding
 {
-    /// <summary> AStar 길찾기 계산을 멀티 스레드 환경에서 순차적으로 실행시키는 Class  </summary>
-    public class PathfindingQueue : MonoBehaviour
+    /// <summary> AStar 길찾기 계산을 멀티 스레드 환경에서 순차적으로 실행시키는 클래스 </summary>
+    internal class PathfindingQueue
     {
-        public static PathfindingQueue Instance => _instance;
-        private static PathfindingQueue _instance;
-
-        private ConcurrentQueue<Action> _pathfindingQueue = new ConcurrentQueue<Action>();
-        private CancellationTokenSource _cancellationTokenSource;
-        private Task _processingTask;
+        private static ConcurrentQueue<Action> _pathfindingQueue = new ConcurrentQueue<Action>();
+        private static CancellationTokenSource  _cancellationTokenSource;
+        private static Task _processingTask;
 
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void CreateObj()
+        private static void Start()
         {
-            if (_instance != null)
-                return;
-
-            GameObject obj = new GameObject("PathfindingQueue");
-            _instance = obj.AddComponent<PathfindingQueue>();
-            DontDestroyOnLoad(obj);
-        }
-
-        private void Awake()
-        {
+            _pathfindingQueue.Clear();
             StartProcessingQueue();
         }
 
 
-        private void OnDestroy()
+        /// <summary> 비동기 작업을 취소하는 함수 </summary>
+        internal static void StopProcessingQueue()
         {
+            _pathfindingQueue.Clear();
             _cancellationTokenSource?.Cancel();
         }
 
+
         /// <summary> 큐에 있는 대리자를 순차 실행시키는 함수 </summary>
-        private void StartProcessingQueue()
+        internal static void StartProcessingQueue()
         {
             _cancellationTokenSource = new CancellationTokenSource();
             CancellationToken token = _cancellationTokenSource.Token;
@@ -49,8 +40,10 @@ namespace Muks.PathFinding.AStar
             {
                 while (!token.IsCancellationRequested)
                 {
+                    //큐에 적재된 대리자가 있을경우
                     if (_pathfindingQueue.TryDequeue(out Action action))
                     {
+                        //대리자를 실행시킨다.
                         action.Invoke();
                     }
                     else
@@ -64,7 +57,7 @@ namespace Muks.PathFinding.AStar
 
 
         /// <summary> 대리자를 큐에 적재시키는 함수 </summary>
-        public void Enqueue(Action action)
+        internal static void Enqueue(Action action)
         {
             _pathfindingQueue.Enqueue(action);
         }

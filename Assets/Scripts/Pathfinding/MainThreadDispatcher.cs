@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Muks.PathFinding.AStar
+namespace Muks.PathFinding
 {
-    /// <summary> 큐에 저장시켜놓고 해당 큐를 순차적으로 실행하는 클래스 </summary>
-    public class MainThreadDispatcher : MonoBehaviour
+    /// <summary> 메인스레드에서 큐에 적재된 명령을 순차적으로 실행하는 클래스 </summary>
+    internal class MainThreadDispatcher : MonoBehaviour
     {
         private static readonly Queue<Action> _executionQueue = new Queue<Action>();
 
-        public static MainThreadDispatcher Instance => _instance;
+        internal static MainThreadDispatcher Instance => _instance;
         private static MainThreadDispatcher _instance;
 
 
@@ -25,7 +25,7 @@ namespace Muks.PathFinding.AStar
         }
 
 
-        public void Update()
+        private void Update()
         {
             lock (_executionQueue)
             {
@@ -36,7 +36,7 @@ namespace Muks.PathFinding.AStar
             }
         }
 
-        public void Enqueue(Action action)
+        internal void Enqueue(Action action)
         {
             lock (_executionQueue)
             {

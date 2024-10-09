@@ -2,14 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Muks.PathFinding.AStar;
+using Muks.PathFinding;
 
 public class Unit : MonoBehaviour
 {
     [SerializeField] private Transform _target;
 
-
-    private Vector2 _targetPos;
-    private List<Node> _path;
+    private List<Vector2> _path;
     private Coroutine _coroutine;
 
     private void Start()
@@ -18,9 +17,12 @@ public class Unit : MonoBehaviour
     }
 
 
-    private void GetPath(List<Node> nodeList)
+    private void GetPath(List<Vector2> pathList)
     {
-        _path = nodeList;
+        _path = pathList;
+
+        if (_coroutine != null)
+            StopCoroutine(_coroutine);
         _coroutine = StartCoroutine(FollowPath());
     }
 
@@ -30,11 +32,13 @@ public class Unit : MonoBehaviour
         while (_path == null)
             yield return null;
 
-        foreach (Node node in _path)
+        foreach (Vector2 vec in _path)
         {
-            while (Vector3.Distance(transform.position, node.toWorldPosition()) > 0.05f)
+            while (Vector3.Distance(transform.position, vec) > 0.05f)
             {
-                transform.position = Vector3.MoveTowards(transform.position, node.toWorldPosition(), 1 * Time.deltaTime);
+                Vector2 dir = (vec - (Vector2)transform.position).normalized;
+                transform.Translate(dir * Time.deltaTime * 5, Space.World);
+
                 yield return null;
             }
         }
@@ -50,7 +54,7 @@ public class Unit : MonoBehaviour
 
             for (int i = 0; i < _path.Count - 1; i++)
             {
-                Gizmos.DrawLine(_path[i].toWorldPosition(), _path[i + 1].toWorldPosition());
+                Gizmos.DrawLine(_path[i], _path[i + 1]);
             }
         }
     }
