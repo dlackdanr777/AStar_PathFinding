@@ -160,8 +160,8 @@ namespace Muks.PathFinding.AStar
             }
 
             //시작, 목표 위치를 Node Index로 변경 후 실행한다.
-            Vector2Int sPos = WorldToNodePos(startPos);
-            Vector2Int tPos = WorldToNodePos(targetPos);
+            Vector2Int sPos = WorldToNodePosition(startPos);
+            Vector2Int tPos = WorldToNodePosition(targetPos);
 
             for (int i = 0; i < _sizeX; ++i)
             {
@@ -198,11 +198,11 @@ namespace Muks.PathFinding.AStar
                     Node node = targetNode;
                     while (node != startNode)
                     {
-                        tmpList.Add(node.toWorldPosition());
+                        tmpList.Add(NodetoWorldPosition(node));
                         node = node.ParentNode;
                     }
 
-                    tmpList.Add(startNode.toWorldPosition());
+                    tmpList.Add(NodetoWorldPosition(startNode));
                     tmpList.Reverse();
                     return tmpList;
                 }
@@ -258,7 +258,7 @@ namespace Muks.PathFinding.AStar
         }
 
         /// <summary> 월드 좌표를 노드 좌표로 변환하는 함수 </summary>
-        private Vector2Int WorldToNodePos(Vector2 pos)
+        private Vector2Int WorldToNodePosition(Vector2 pos)
         {
             int posX = Mathf.FloorToInt((pos.x - _mapBottomLeft.x) / _nodeSize);
             int posY = Mathf.FloorToInt((pos.y - _mapBottomLeft.y) / _nodeSize);
@@ -267,6 +267,14 @@ namespace Muks.PathFinding.AStar
             posY = Mathf.Clamp(posY, 0, _sizeY - 1);
 
             return new Vector2Int(posX, posY);
+        }
+
+        /// <summary> 노드 좌표를 월드 좌표로 변환해 반환</summary>
+        internal Vector2 NodetoWorldPosition(Node node)
+        {
+            float posX = _mapBottomLeft.x + (node.X + 0.5f) * _nodeSize;
+            float posY = _mapBottomLeft.y + (node.Y + 0.5f) * _nodeSize;
+            return new Vector2(posX, posY);
         }
 
 
